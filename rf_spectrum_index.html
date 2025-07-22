@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RF Spectrum Analyzer Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f1f3bd;
+        }
+        #spectrumCanvas {
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            background: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        label {
+            margin-right: 5px;
+        }
+        input, button {
+            padding: 5px;
+            margin: 5px;
+        }
+        button {
+            background-color: #0f2ef8;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #e11212;
+        }
+    </style>
+</head>
+<body>
+    <h1>RF Spectrum Analyzer Simulator</h1>
+    <div id="controls">
+        <div class="control-group">
+            <label for="centerFreq">Center Frequency (MHz):</label>
+            <input type="number" id="centerFreq" value="1000" step="1">
+        </div>
+        <div class="control-group">
+            <label for="span">Span (MHz):</label>
+            <input type="number" id="span" value="100" step="1">
+        </div>
+        <div class="control-group">
+            <label for="rbw">Resolution Bandwidth (kHz):</label>
+            <input type="number" id="rbw" value="100" step="10">
+        </div>
+        <div class="control-group">
+            <label for="amplitude">Reference Level (dBm):</label>
+            <input type="number" id="amplitude" value="0" step="1">
+        </div>
+        <button onclick="updateSpectrum()">Update Spectrum</button>
+    </div>
+    <canvas id="spectrumCanvas"></canvas>
+
+    <script>
+        const ctx = document.getElementById('spectrumCanvas').getContext('2d');
+        let spectrumChart;
+
+        function initializeChart() {
+            spectrumChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Spectrum',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Frequency (MHz)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Amplitude (dBm)' },
+                            suggestedMin: -100,
+                            suggestedMax: 10
+                        }
+                    }
+                }
+            });
+        }
+
+        async function updateSpectrum() {
+            const centerFreq = parseFloat(document.getElementById('centerFreq').value);
+            const span = parseFloat(document.getElementById('span').value);
+            const rbw = parseFloat(document.getElementById('rbw').value);
+            const amplitude = parseFloat(document.getElementById('amplitude').value);
+
+            try {
+                const response = await fetch('/get_spectrum', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ centerFreq, span, rbw, amplitude })
+                });
+                const data = await response.json();
+
+                spectrumChart.data.labels = data.frequencies;
+                spectrumChart.data.datasets[0].data = data.amplitudes;
+                spectrumChart.options.scales.y.suggestedMax = amplitude + 10;
+                spectrumChart.options.scales.y.suggestedMin = amplitude - 100;
+                spectrumChart.update();
+            } catch (error) {
+                console.error('Error fetching spectrum:', error);
+            }
+        }
+
+        window.onload = () => {
+            initializeChart();
+            updateSpectrum();
+        };
+    </script>
+</body>
+</html>
